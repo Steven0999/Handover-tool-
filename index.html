@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paramedic Handover & Assessment Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        .tab-btn.active {
+            background-color: #1e40af;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .form-section {
+            display: none;
+            animation: fadeIn 0.2s ease-out;
+        }
+        .form-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Modal Backdrop */
+        #script-modal {
+            display: none;
+            background-color: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(4px);
+        }
+        #script-modal.active {
+            display: flex;
+        }
+        /* Custom Input Styling */
+        input, textarea, select {
+            border: 1px solid #cbd5e1;
+            transition: all 0.2s ease;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <!-- Sidebar / Mobile Nav -->
+    <aside class="w-full md:w-64 bg-slate-900 text-slate-100 flex flex-col shrink-0 z-30 shadow-2xl">
+        <div class="p-4 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
+            <h1 class="font-bold text-lg flex items-center gap-2">
+                <i class="fa-solid fa-notes-medical text-red-500"></i> EMS Scribe
+            </h1>
+        </div>
+        
+        <nav class="flex-1 overflow-x-auto md:overflow-y-auto flex md:flex-col gap-1 p-2 scrollbar-hide">
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 mt-4 mb-2 hidden md:block">Critical</div>
+            <button onclick="switchTab('trauma')" id="btn-trauma" class="tab-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 whitespace-nowrap">
+                <div class="w-8 h-8 rounded-lg bg-red-900/50 flex items-center justify-center"><i class="fa-solid fa-burst text-red-400"></i></div> Trauma
+            </button>
+            <button onclick="switchTab('medical')" id="btn-medical" class="tab-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 whitespace-nowrap">
+                <div class="w-8 h-8 rounded-lg bg-green-900/50 flex items-center justify-center"><i class="fa-solid fa-heart-pulse text-green-400"></i></div> Medical
+            </button>
+
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 mt-4 mb-2 hidden md:block">Standard</div>
+            <button onclick="switchTab('ashice')" id="btn-ashice" class="tab-btn active w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 whitespace-nowrap">
+                <div class="w-8 h-8 rounded-lg bg-blue-900/50 flex items-center justify-center"><i class="fa-solid fa-radio text-blue-400"></i></div> ASHICE
+            </button>
+            <button onclick="switchTab('atmist')" id="btn-atmist" class="tab-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 whitespace-nowrap">
+                <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center"><i class="fa-solid fa-list-check"></i></div> ATMIST
+            </button>
+            <button onclick="switchTab('sbar')" id="btn-sbar" class="tab-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 whitespace-nowrap">
+                <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center"><i class="fa-solid fa-comment-medical"></i></div> SBAR
+            </button>
+            
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 mt-4 mb-2 hidden md:block">Tools</div>
+            <button onclick="switchTab('socrates')" id="btn-socrates" class="tab-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 whitespace-nowrap">
+                <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-xs">SOC</div> SOCRATES
+            </button>
+            <button onclick="switchTab('sample')" id="btn-sample" class="tab-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 whitespace-nowrap">
+                <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-xs">SAM</div> SAMPLE
+            </button>
+            <button onclick="switchTab('gcs')" id="btn-gcs" class="tab-btn w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 whitespace-nowrap">
+                <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-xs">GCS</div> GCS
+            </button>
+        </nav>
+    </aside>
+
+    <!-- Main Entry Screen -->
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+        
+        <!-- Toolbar -->
+        <div class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm">
+            <h2 id="current-title" class="text-xl font-bold text-slate-800">ASHICE Pre-Alert</h2>
+            <div class="flex gap-2">
+                <button onclick="clearCurrent()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                    <i class="fa-solid fa-eraser mr-1"></i> Clear
+                </button>
+                <button onclick="openModal()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg shadow-lg shadow-blue-200 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-file-export"></i> Generate Script
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-10 pb-32">
+            <!-- Full Width Container -->
+            <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
+                
+                <!-- TRAUMA -->
+                <div id="trauma" class="form-section">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">1. Name</label>
+                            <input type="text" id="tr-name" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Full Name">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Age</label>
+                            <input type="text" id="tr-age" class="w-full p-3 rounded-lg bg-slate-50" placeholder="e.g. 24">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Time of Injury</label>
+                            <input type="text" id="tr-time" class="w-full p-3 rounded-lg bg-slate-50" placeholder="00:00">
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. Mechanism of Injury</label>
+                            <textarea id="tr-mechanism" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Speed, impact type, height..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">3. GCS / Limb Movement</label>
+                            <input type="text" id="tr-gcs" class="w-full p-3 rounded-lg bg-slate-50" placeholder="e.g. GCS 15, moving all limbs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">4. Injuries (Top to Toe)</label>
+                            <textarea id="tr-injuries" class="w-full p-3 rounded-lg bg-slate-50" rows="3" placeholder="Head, Neck, Chest, Abdo, Pelvis, Limbs..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">5. Interventions / Drugs</label>
+                            <textarea id="tr-interventions" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="TXA, Splints, Fluids, Analgesia..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">6. Volume Issues</label>
+                            <input type="text" id="tr-volume" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Fluid loss, fluid replaced...">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">7. Stable / Unstable in Transfer</label>
+                            <input type="text" id="tr-stable" class="w-full p-3 rounded-lg bg-slate-50" placeholder="e.g. Remained stable throughout">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">8. Immediate Needs</label>
+                            <textarea id="tr-needs" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Blood, RSI, CT Scan..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MEDICAL -->
+                <div id="medical" class="form-section">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">1. Name</label>
+                            <input type="text" id="med-name" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Full Name">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Age</label>
+                            <input type="text" id="med-age" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Age">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Time of Call</label>
+                            <input type="text" id="med-time" class="w-full p-3 rounded-lg bg-slate-50" placeholder="00:00">
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">2. Presenting Complaint</label>
+                            <textarea id="med-complaint" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Primary reason for calling..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">3. Past Medical History</label>
+                            <textarea id="med-pmhx" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Relevant history..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">4. Working Diagnosis / Findings</label>
+                            <textarea id="med-diagnosis" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Impression and exam findings..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">5. Investigations / Drugs Given</label>
+                            <textarea id="med-investigation" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="ECG, BM, Meds administered..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">6. Immediate Needs / Other</label>
+                            <textarea id="med-needs" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Escalation, further drugs, senior review..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ASHICE -->
+                <div id="ashice" class="form-section active">
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Age</label>
+                            <input type="text" id="ashice-age" class="w-full p-3 rounded-lg bg-slate-50" placeholder="e.g. 52">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sex</label>
+                            <select id="ashice-sex" class="w-full p-3 rounded-lg bg-slate-50">
+                                <option>Male</option>
+                                <option>Female</option>
+                                <option>Child/Infant</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">History / Presenting Complaint</label>
+                            <textarea id="ashice-history" class="w-full p-3 rounded-lg bg-slate-50" rows="3" placeholder="What happened?"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Injuries / Illness</label>
+                            <textarea id="ashice-injuries" class="w-full p-3 rounded-lg bg-slate-50" rows="3" placeholder="Key findings..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Condition (Vitals)</label>
+                            <input type="text" id="ashice-condition" class="w-full p-3 rounded-lg bg-slate-50" placeholder="BP, HR, RR, GCS...">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">ETA</label>
+                            <input type="text" id="ashice-eta" class="w-full p-3 rounded-lg bg-slate-50" placeholder="e.g. 8 mins">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Placeholder for other tabs like SBAR, SOCRATES etc following similar clean layout... -->
+                <div id="sbar" class="form-section">
+                    <div class="space-y-6">
+                        <div><label class="block text-xs font-bold text-slate-500 uppercase mb-2">Situation</label><textarea id="sbar-s" class="w-full p-3 rounded-lg bg-slate-50" rows="2"></textarea></div>
+                        <div><label class="block text-xs font-bold text-slate-500 uppercase mb-2">Background</label><textarea id="sbar-b" class="w-full p-3 rounded-lg bg-slate-50" rows="2"></textarea></div>
+                        <div><label class="block text-xs font-bold text-slate-500 uppercase mb-2">Assessment</label><textarea id="sbar-a" class="w-full p-3 rounded-lg bg-slate-50" rows="2"></textarea></div>
+                        <div><label class="block text-xs font-bold text-slate-500 uppercase mb-2">Recommendation</label><textarea id="sbar-r" class="w-full p-3 rounded-lg bg-slate-50" rows="2"></textarea></div>
+                    </div>
+                </div>
+
+                <div id="atmist" class="form-section">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <input type="text" id="atmist-age" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Age/Sex">
+                        <input type="text" id="atmist-time" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Time">
+                    </div>
+                    <div class="space-y-4">
+                        <textarea id="atmist-m" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Mechanism"></textarea>
+                        <textarea id="atmist-i" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Injuries"></textarea>
+                        <textarea id="atmist-s" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Signs"></textarea>
+                        <textarea id="atmist-t" class="w-full p-3 rounded-lg bg-slate-50" rows="2" placeholder="Treatment"></textarea>
+                    </div>
+                </div>
+
+                <div id="socrates" class="form-section">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" id="soc-s" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Site">
+                        <input type="text" id="soc-o" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Onset">
+                        <input type="text" id="soc-c" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Character">
+                        <input type="text" id="soc-r" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Radiation">
+                        <input type="text" id="soc-a" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Associations">
+                        <input type="text" id="soc-t" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Time Course">
+                        <input type="text" id="soc-e" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Exacerbating/Relieving">
+                        <div class="p-3">
+                            <label class="text-xs font-bold text-slate-500 uppercase block mb-1">Severity (0-10)</label>
+                            <input type="range" id="soc-sev" min="0" max="10" value="0" class="w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sample" class="form-section">
+                    <div class="space-y-4">
+                        <input type="text" id="sam-s" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Signs & Symptoms">
+                        <input type="text" id="sam-a" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Allergies">
+                        <input type="text" id="sam-m" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Medications">
+                        <input type="text" id="sam-p" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Past Hx">
+                        <input type="text" id="sam-l" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Last Oral Intake">
+                        <input type="text" id="sam-e" class="w-full p-3 rounded-lg bg-slate-50" placeholder="Events leading up">
+                    </div>
+                </div>
+
+                <div id="gcs" class="form-section">
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="text-sm font-bold mb-3">Eyes</h4>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="setGCS('e', 4)" class="gcs-e p-2 border rounded hover:bg-slate-100" data-val="4">Spontaneous (4)</button>
+                                <button onclick="setGCS('e', 3)" class="gcs-e p-2 border rounded hover:bg-slate-100" data-val="3">Sound (3)</button>
+                                <button onclick="setGCS('e', 2)" class="gcs-e p-2 border rounded hover:bg-slate-100" data-val="2">Pressure (2)</button>
+                                <button onclick="setGCS('e', 1)" class="gcs-e p-2 border rounded hover:bg-slate-100" data-val="1">None (1)</button>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold mb-3">Verbal</h4>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                <button onclick="setGCS('v', 5)" class="gcs-v p-2 border rounded hover:bg-slate-100" data-val="5">Oriented (5)</button>
+                                <button onclick="setGCS('v', 4)" class="gcs-v p-2 border rounded hover:bg-slate-100" data-val="4">Confused (4)</button>
+                                <button onclick="setGCS('v', 3)" class="gcs-v p-2 border rounded hover:bg-slate-100" data-val="3">Words (3)</button>
+                                <button onclick="setGCS('v', 2)" class="gcs-v p-2 border rounded hover:bg-slate-100" data-val="2">Sounds (2)</button>
+                                <button onclick="setGCS('v', 1)" class="gcs-v p-2 border rounded hover:bg-slate-100" data-val="1">None (1)</button>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-bold mb-3">Motor</h4>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                <button onclick="setGCS('m', 6)" class="gcs-m p-2 border rounded hover:bg-slate-100" data-val="6">Obeys (6)</button>
+                                <button onclick="setGCS('m', 5)" class="gcs-m p-2 border rounded hover:bg-slate-100" data-val="5">Localises (5)</button>
+                                <button onclick="setGCS('m', 4)" class="gcs-m p-2 border rounded hover:bg-slate-100" data-val="4">Flexion (4)</button>
+                                <button onclick="setGCS('m', 3)" class="gcs-m p-2 border rounded hover:bg-slate-100" data-val="3">Abn Flex (3)</button>
+                                <button onclick="setGCS('m', 2)" class="gcs-m p-2 border rounded hover:bg-slate-100" data-val="2">Extension (2)</button>
+                                <button onclick="setGCS('m', 1)" class="gcs-m p-2 border rounded hover:bg-slate-100" data-val="1">None (1)</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Script Output Modal -->
+    <div id="script-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-800">Generated Script</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="flex-1 p-6 overflow-y-auto bg-slate-50">
+                <div id="output-display" class="font-mono text-sm text-slate-800 whitespace-pre-wrap leading-relaxed bg-white p-6 rounded-2xl border border-slate-200 shadow-inner">
+                    Your script will appear here...
+                </div>
+            </div>
+
+            <div class="p-6 bg-white border-t border-slate-200 flex flex-col md:flex-row gap-3">
+                <button onclick="copyToClipboard()" id="copy-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-copy"></i> Copy to Clipboard
+                </button>
+                <button onclick="closeModal()" class="md:w-32 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-4 px-6 rounded-2xl transition-all">
+                    Back
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentGCS = { e: 0, v: 0, m: 0 };
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${tabId}`).classList.add('active');
+            document.querySelectorAll('.form-section').forEach(section => section.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            const titles = {
+                'trauma': 'Trauma Handover (HEMS)',
+                'medical': 'Medical Handover',
+                'ashice': 'ASHICE Pre-Alert',
+                'atmist': 'ATMIST-AMBO Handover',
+                'sbar': 'SBAR Communication',
+                'socrates': 'SOCRATES Pain Tool',
+                'sample': 'SAMPLE History',
+                'gcs': 'GCS Calculator'
+            };
+            document.getElementById('current-title').textContent = titles[tabId];
+        }
+
+        function val(id) { return document.getElementById(id).value; }
+
+        function setGCS(type, value) {
+            currentGCS[type] = value;
+            document.querySelectorAll(`.gcs-${type}`).forEach(btn => {
+                btn.classList.toggle('bg-blue-600', parseInt(btn.dataset.val) === value);
+                btn.classList.toggle('text-white', parseInt(btn.dataset.val) === value);
+            });
+        }
+
+        function openModal() {
+            const activeSection = document.querySelector('.form-section.active').id;
+            let script = "";
+
+            if(activeSection === 'trauma') {
+                script = `TRAUMA HANDOVER\n----------------\n1. NAME/AGE/TIME: ${val('tr-name')}, ${val('tr-age')}, @ ${val('tr-time')}\n2. MECHANISM: ${val('tr-mechanism')}\n3. GCS/LIMBS: ${val('tr-gcs')}\n4. INJURIES: ${val('tr-injuries')}\n5. INTERVENTIONS: ${val('tr-interventions')}\n6. VOLUME: ${val('tr-volume')}\n7. TRANSFER STATUS: ${val('tr-stable')}\n8. NEEDS: ${val('tr-needs')}`;
+            } else if(activeSection === 'medical') {
+                script = `MEDICAL HANDOVER\n-----------------\n1. NAME/AGE/TIME: ${val('med-name')}, ${val('med-age')}, @ ${val('med-time')}\n2. COMPLAINT: ${val('med-complaint')}\n3. PMHx: ${val('med-pmhx')}\n4. DIAGNOSIS/FINDINGS: ${val('med-diagnosis')}\n5. INVESTIGATION/DRUGS: ${val('med-investigation')}\n6. NEEDS/OTHER: ${val('med-needs')}`;
+            } else if(activeSection === 'ashice') {
+                script = `ASHICE PRE-ALERT\n----------------\nAGE: ${val('ashice-age')}\nSEX: ${val('ashice-sex')}\nHISTORY: ${val('ashice-history')}\nINJURIES: ${val('ashice-injuries')}\nCONDITION: ${val('ashice-condition')}\nETA: ${val('ashice-eta')}`;
+            } else if(activeSection === 'sbar') {
+                script = `SBAR REPORT\n-----------\nS: ${val('sbar-s')}\nB: ${val('sbar-b')}\nA: ${val('sbar-a')}\nR: ${val('sbar-r')}`;
+            } else if(activeSection === 'atmist') {
+                script = `ATMIST HANDOVER\n---------------\nA: ${val('atmist-age')}\nT: ${val('atmist-time')}\nM: ${val('atmist-m')}\nI: ${val('atmist-i')}\nS: ${val('atmist-s')}\nT: ${val('atmist-t')}`;
+            } else if(activeSection === 'socrates') {
+                script = `SOCRATES PAIN\n-------------\nSite: ${val('soc-s')}\nOnset: ${val('soc-o')}\nCharacter: ${val('soc-c')}\nRadiation: ${val('soc-r')}\nAssociations: ${val('soc-a')}\nTime: ${val('soc-t')}\nExac/Rel: ${val('soc-e')}\nSeverity: ${val('soc-sev')}/10`;
+            } else if(activeSection === 'sample') {
+                script = `SAMPLE HISTORY\n--------------\nS: ${val('sam-s')}\nA: ${val('sam-a')}\nM: ${val('sam-m')}\nP: ${val('sam-p')}\nL: ${val('sam-l')}\nE: ${val('sam-e')}`;
+            } else if(activeSection === 'gcs') {
+                const total = currentGCS.e + currentGCS.v + currentGCS.m;
+                script = `GCS: ${total}/15 (E:${currentGCS.e} V:${currentGCS.v} M:${currentGCS.m})`;
+            }
+
+            document.getElementById('output-display').textContent = script;
+            document.getElementById('script-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('script-modal').classList.remove('active');
+        }
+
+        function copyToClipboard() {
+            const text = document.getElementById('output-display').textContent;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textArea);
+
+            const btn = document.getElementById('copy-btn');
+            btn.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
+            setTimeout(() => { btn.innerHTML = `<i class="fa-solid fa-copy"></i> Copy to Clipboard`; }, 2000);
+        }
+
+        function clearCurrent() {
+            const activeSection = document.querySelector('.form-section.active');
+            activeSection.querySelectorAll('input, textarea').forEach(el => el.value = '');
+            if(activeSection.id === 'gcs') {
+                currentGCS = { e: 0, v: 0, m: 0 };
+                document.querySelectorAll('.gcs-e, .gcs-v, .gcs-m').forEach(btn => btn.classList.remove('bg-blue-600', 'text-white'));
+            }
+        }
+    </script>
+</body>
+</html>
+
